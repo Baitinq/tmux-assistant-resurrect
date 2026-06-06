@@ -1511,6 +1511,7 @@ awk_detect_tool_save() {
 			if      ($0 ~ /(^claude( |$)|\/claude( |$))/)                                    print "claude"
 			else if ($0 ~ /(^opencode( |$)|\/opencode( |$))/ && $0 !~ /opencode run /)      print "opencode"
 			else if ($0 ~ /(^codex( |$)|\/codex( |$))/)                                      print "codex"
+			else if ($0 ~ /(^pi( |$)|\/pi( |$))/)                                            print "pi"
 		}
 	'
 }
@@ -1519,11 +1520,13 @@ awk_detect_tool_save() {
 assert_eq "detect bare 'claude'" "claude" "$(detect_tool "claude")"
 assert_eq "detect bare 'opencode'" "opencode" "$(detect_tool "opencode")"
 assert_eq "detect bare 'codex'" "codex" "$(detect_tool "codex")"
+assert_eq "detect bare 'pi'" "pi" "$(detect_tool "pi")"
 
 # Bare names with arguments
 assert_eq "detect 'claude --resume ses_123'" "claude" "$(detect_tool "claude --resume ses_123")"
 assert_eq "detect 'opencode -s ses_456'" "opencode" "$(detect_tool "opencode -s ses_456")"
 assert_eq "detect 'codex resume ses_789'" "codex" "$(detect_tool "codex resume ses_789")"
+assert_eq "detect 'pi --session 019e9d2f'" "pi" "$(detect_tool "pi --session 019e9d2f")"
 
 # Full paths (how they appear on macOS or via shebang)
 assert_eq "detect '/usr/local/bin/claude'" "claude" "$(detect_tool "/usr/local/bin/claude")"
@@ -2295,6 +2298,14 @@ assert_eq "OpenCode strip --session" "--verbose" \
 # OpenCode: strip --session=<id> (equals form)
 assert_eq "OpenCode strip --session= (equals)" "--verbose" \
 	"$(extract_cli_args "opencode" "opencode --verbose --session=ses_abc")"
+
+# Pi: strip --session and keep normal flags
+assert_eq "Pi strip --session" "--model sonnet:high --tools read,bash" \
+	"$(extract_cli_args "pi" "pi --model sonnet:high --session 019e9d2f --tools read,bash")"
+
+# Pi: strip --session-id equals form
+assert_eq "Pi strip --session-id=" "--provider openai" \
+	"$(extract_cli_args "pi" "pi --provider openai --session-id=019e9d2f")"
 
 # Codex: strip resume <id> (positional subcommand)
 assert_eq "Codex strip resume" "--full-auto" \

@@ -153,6 +153,23 @@ except Exception:
 	fi
 }
 
+get_pi_session() {
+	local args="$1"
+
+	local sid
+	sid=$(echo "$args" | sed -n "s/.*--session-id[= ] *\([A-Za-z0-9_-]*\).*/\1/p")
+	if [ -n "$sid" ]; then
+		echo "$sid"
+		return
+	fi
+
+	sid=$(echo "$args" | sed -n "s/.*--session[= ] *\([^ ]*\).*/\1/p")
+	if [ -n "$sid" ]; then
+		echo "$sid"
+		return
+	fi
+}
+
 get_codex_session() {
 	local child_pid="$1"
 	local args="$2"
@@ -463,6 +480,7 @@ _discover_session_flags() {
 # auto-discovered without script changes.
 SESSION_FLAG_PATTERN_claude='^--(resume|continue|session-id|fork-session|from-pr)$'
 SESSION_FLAG_PATTERN_opencode='^--session$'
+SESSION_FLAG_PATTERN_pi='^--(session|session-id|continue|resume|fork)$'
 # codex uses subcommands (resume, fork), not --flags — handled separately.
 SESSION_SUBCMD_PATTERN_codex='resume|fork'
 # Codex resume/fork have subcommand-specific picker flags that must also
@@ -477,6 +495,11 @@ SESSION_FLAGS_FALLBACK_claude="--continue -c
 --resume -r
 --session-id"
 SESSION_FLAGS_FALLBACK_opencode="--session -s"
+SESSION_FLAGS_FALLBACK_pi="--continue -c
+--fork
+--resume -r
+--session
+--session-id"
 
 # --- CLI args extraction ---
 
@@ -611,6 +634,7 @@ resolve_pane_candidates() {
 				[ -z "$session_id" ] && session_id=$(get_opencode_session "$cand_pid" "$cand_args" "$pane_cwd" "$allow_opencode_db")
 				;;
 			codex) session_id=$(get_codex_session "$cand_pid" "$cand_args" "$pane_cwd") ;;
+			pi) session_id=$(get_pi_session "$cand_args") ;;
 			esac
 
 			if [ -n "$session_id" ]; then
@@ -713,6 +737,7 @@ main() {
 			if      (line ~ /(^claude( |$)|\/claude( |$))/)                                      proc_tool[pid] = "claude"
 			else if (line ~ /(^opencode( |$)|\/opencode( |$))/ && line !~ /opencode run /)       proc_tool[pid] = "opencode"
 			else if (line ~ /(^codex( |$)|\/codex( |$))/)                                        proc_tool[pid] = "codex"
+			else if (line ~ /(^pi( |$)|\/pi( |$))/)                                              proc_tool[pid] = "pi"
 		}
 		END {
 			for (i = 1; i <= pane_count; i++) {
@@ -913,6 +938,7 @@ emit_session() {
 	claude) session_id=$(get_claude_session "$cpid" "$cargs") ;;
 	opencode) session_id=$(get_opencode_session "$cpid" "$cargs" "$cwd" "$allow_opencode_db") ;;
 	codex) session_id=$(get_codex_session "$cpid" "$cargs" "$cwd") ;;
+	pi) session_id=$(get_pi_session "$cargs") ;;
 	esac
 
 	if [ -n "$session_id" ]; then
