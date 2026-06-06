@@ -458,14 +458,21 @@ _discover_session_flags() {
 		return
 	fi
 
+	local fallback_var="SESSION_FLAGS_FALLBACK_${tool}"
+	local fallback="${!fallback_var:-}"
 	local help_out result=""
 	help_out=$("$tool" --help 2>/dev/null) || true
+	if [ "$tool" = "pi" ]; then
+		# `pi --help` can be slow in tmux hooks because extension discovery loads
+		# user extensions. The static fallback is complete for Pi session flags.
+		printf -v "$cache_var" '%s' "${fallback:--}"
+		[ -n "$fallback" ] && echo "$fallback"
+		return
+	fi
 	if [ -z "$help_out" ]; then
 		# Fallback: tmux hooks may run with a limited PATH that cannot
 		# resolve the binary even though the process is running. Use a
 		# static set so known session flags are still stripped.
-		local fallback_var="SESSION_FLAGS_FALLBACK_${tool}"
-		local fallback="${!fallback_var:-}"
 		printf -v "$cache_var" '%s' "${fallback:--}"
 		[ -n "$fallback" ] && echo "$fallback"
 		return
@@ -546,6 +553,11 @@ extract_cli_args() {
 		args="${args# }"
 		;;
 	esac
+
+	if [ "$tool" = "pi" ]; then
+		echo "$args" | sed -E 's/(^| )--session-id(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )--session(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )--continue( |$)/ /g; s/(^| )-c( |$)/ /g; s/(^| )--resume( |$)/ /g; s/(^| )-r( |$)/ /g; s/(^| )--fork( +[^- ][^ ]*)?/ /g; s/(^| )--extension(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )-e( +[^- ][^ ]*)?/ /g; s/  +/ /g; s/^ //; s/ $//'
+		return
+	fi
 
 	# Strip tool-specific session/resume flags.
 	local pattern_var="SESSION_FLAG_PATTERN_${tool}"
