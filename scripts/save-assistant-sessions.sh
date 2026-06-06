@@ -154,7 +154,18 @@ except Exception:
 }
 
 get_pi_session() {
-	local args="$1"
+	local child_pid="$1"
+	local args="$2"
+
+	local state_file="$STATE_DIR/pi-${child_pid}.json"
+	if [ -f "$state_file" ]; then
+		local sid
+		sid=$(jq -r '.session_id // empty' "$state_file" 2>/dev/null || true)
+		if [ -n "$sid" ]; then
+			echo "$sid"
+			return
+		fi
+	fi
 
 	local sid
 	sid=$(echo "$args" | sed -n "s/.*--session-id[= ] *\([A-Za-z0-9_-]*\).*/\1/p")
@@ -480,7 +491,7 @@ _discover_session_flags() {
 # auto-discovered without script changes.
 SESSION_FLAG_PATTERN_claude='^--(resume|continue|session-id|fork-session|from-pr)$'
 SESSION_FLAG_PATTERN_opencode='^--session$'
-SESSION_FLAG_PATTERN_pi='^--(session|session-id|continue|resume|fork)$'
+SESSION_FLAG_PATTERN_pi='^--(session|session-id|continue|resume|fork|extension)$'
 # codex uses subcommands (resume, fork), not --flags — handled separately.
 SESSION_SUBCMD_PATTERN_codex='resume|fork'
 # Codex resume/fork have subcommand-specific picker flags that must also
@@ -493,13 +504,15 @@ SESSION_FLAGS_FALLBACK_claude="--continue -c
 --fork-session
 --from-pr
 --resume -r
---session-id"
+--session-id
+--extension -e"
 SESSION_FLAGS_FALLBACK_opencode="--session -s"
 SESSION_FLAGS_FALLBACK_pi="--continue -c
 --fork
 --resume -r
 --session
---session-id"
+--session-id
+--extension -e"
 
 # --- CLI args extraction ---
 
@@ -634,7 +647,7 @@ resolve_pane_candidates() {
 				[ -z "$session_id" ] && session_id=$(get_opencode_session "$cand_pid" "$cand_args" "$pane_cwd" "$allow_opencode_db")
 				;;
 			codex) session_id=$(get_codex_session "$cand_pid" "$cand_args" "$pane_cwd") ;;
-			pi) session_id=$(get_pi_session "$cand_args") ;;
+			pi) session_id=$(get_pi_session "$cand_pid" "$cand_args") ;;
 			esac
 
 			if [ -n "$session_id" ]; then
@@ -647,6 +660,7 @@ resolve_pane_candidates() {
 				case "$cand_tool" in
 				claude) state_file="$STATE_DIR/claude-${cand_pid}.json" ;;
 				opencode) state_file="$STATE_DIR/opencode-${cand_pid}.json" ;;
+				pi) state_file="$STATE_DIR/pi-${cand_pid}.json" ;;
 				esac
 				if [ -n "$state_file" ] && [ -f "$state_file" ]; then
 					[ -z "$model" ] && model=$(jq -r '.model // empty' "$state_file" 2>/dev/null || true)
@@ -801,7 +815,7 @@ main() {
 	# has valid JSON input — /dev/null has no content and causes a parse error.
 	if echo '{}' | jq 'input_filename' >/dev/null 2>&1; then
 		local state_files=()
-		for _f in "$STATE_DIR"/claude-*.json "$STATE_DIR"/opencode-*.json; do
+		for _f in "$STATE_DIR"/claude-*.json "$STATE_DIR"/opencode-*.json "$STATE_DIR"/pi-*.json; do
 			[ -f "$_f" ] && state_files+=("$_f")
 		done
 		if [ ${#state_files[@]} -gt 0 ]; then
@@ -938,7 +952,7 @@ emit_session() {
 	claude) session_id=$(get_claude_session "$cpid" "$cargs") ;;
 	opencode) session_id=$(get_opencode_session "$cpid" "$cargs" "$cwd" "$allow_opencode_db") ;;
 	codex) session_id=$(get_codex_session "$cpid" "$cargs" "$cwd") ;;
-	pi) session_id=$(get_pi_session "$cargs") ;;
+	pi) session_id=$(get_pi_session "$cpid" "$cargs") ;;
 	esac
 
 	if [ -n "$session_id" ]; then
@@ -951,6 +965,7 @@ emit_session() {
 		case "$tool" in
 		claude) state_file="$STATE_DIR/claude-${cpid}.json" ;;
 		opencode) state_file="$STATE_DIR/opencode-${cpid}.json" ;;
+		pi) state_file="$STATE_DIR/pi-${cpid}.json" ;;
 		esac
 
 		if [ -n "$state_file" ] && [ -f "$state_file" ]; then

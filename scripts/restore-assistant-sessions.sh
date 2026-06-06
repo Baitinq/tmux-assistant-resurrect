@@ -201,9 +201,9 @@ while read -r entry; do
 		;;
 	pi)
 		if [ -n "$safe_cli_args" ]; then
-			resume_cmd="command pi${safe_cli_args} --session ${safe_sid}"
+			resume_cmd="command pi --extension $(posix_quote "$HOME/.pi/agent/extensions/tmux-assistant-resurrect-pi-session-track.ts")${safe_cli_args} --session ${safe_sid}"
 		else
-			resume_cmd="command pi --session ${safe_sid}"
+			resume_cmd="command pi --extension $(posix_quote "$HOME/.pi/agent/extensions/tmux-assistant-resurrect-pi-session-track.ts") --session ${safe_sid}"
 		fi
 		;;
 	*)

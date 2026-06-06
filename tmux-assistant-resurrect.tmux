@@ -7,6 +7,7 @@
 # 2. Post-save/restore hooks for assistant session tracking
 # 3. Claude Code hooks in ~/.claude/settings.json
 # 4. OpenCode session-tracker plugin in ~/.config/opencode/plugins/
+# 5. Pi session-tracker extension in ~/.pi/agent/extensions/
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -98,6 +99,20 @@ install_claude_hooks() {
 
 # --- OpenCode plugin ---
 
+install_pi_extension() {
+    local extension_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions"
+    local extension_file="$extension_dir/tmux-assistant-resurrect-pi-session-track.ts"
+    local source_file="${CURRENT_DIR}/hooks/pi-session-track.ts"
+
+    mkdir -p "$extension_dir"
+
+    if [ -L "$extension_file" ] && [ "$(readlink "$extension_file")" = "$source_file" ]; then
+        return
+    fi
+
+    ln -sf "$source_file" "$extension_file"
+}
+
 install_opencode_plugin() {
     local plugin_dir="$HOME/.config/opencode/plugins"
     local plugin_file="$plugin_dir/session-tracker.js"
@@ -116,4 +131,5 @@ install_opencode_plugin() {
 # --- Run assistant hook installation ---
 
 install_claude_hooks
+install_pi_extension
 install_opencode_plugin

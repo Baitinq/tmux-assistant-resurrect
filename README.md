@@ -53,7 +53,7 @@ Session ID extraction uses tool-native mechanisms (infrastructure plumbing):
 | **Claude Code** | `SessionStart` hook state file (keyed by Claude PID) | `--resume` in process args | - | Claude overwrites its process title, so args fallback only works if args are visible |
 | **OpenCode** | `-s` / `--session` in process args | Plugin state file | SQLite DB query (`~/.local/share/opencode/opencode.db`) | Go binary overwrites process title; DB fallback matches most recent session by cwd |
 | **Codex CLI** | PID lookup in `~/.codex/session-tags.jsonl` | `resume` in process args | - | Codex runs via Node.js, so args are always visible in `ps` |
-| **Pi** | `--session` / `--session-id` in process args | - | - | Pi exposes stable session IDs in its CLI args; restore uses `pi --session <id>` |
+| **Pi** | Pi extension state file (keyed by Pi PID) | `--session` / `--session-id` in process args | - | The extension makes plain `pi` launches resumable; restore uses `pi --session <id>` |
 
 Each tool has a primary and fallback extraction method. Fallbacks address the
 chicken-and-egg problem: after a restore, session IDs are in process args even
@@ -328,7 +328,7 @@ cat ~/.local/share/tmux/resurrect/assistant-save.log
 | Save finds 0 sessions | Run `ps -eo pid=,ppid=,args= \| grep -E 'claude\|opencode\|codex\|pi'` to verify assistants are running |
 | Session ID missing for Claude | Verify the hook is installed: `jq '.hooks.SessionStart' ~/.claude/settings.json` |
 | Session ID missing for OpenCode | Launch with `-s <id>`, or verify the plugin: `ls ~/.config/opencode/plugins/session-tracker.js` |
-| Session ID missing for Pi | Start Pi with a stable session argument (`pi --session <id-or-path>` or `pi --session-id <id>`) so the save hook can capture it from process args |
+| Session ID missing for Pi | Verify the extension symlink exists: `ls ~/.pi/agent/extensions/tmux-assistant-resurrect-pi-session-track.ts`; as a fallback, launch with `pi --session <id-or-path>` |
 | Codex/OpenCode session ID missing (python3 methods) | The save hook auto-detects `python3` in common locations. If your setup uses a non-standard path, set it in tmux: `set-environment -g PATH "/your/python3/dir:$PATH"` |
 | Restore launches but assistant says "session not found" | The session ID may have expired. This is normal — start a fresh session and the next save will pick up the new ID |
 | Assistants launch twice after restore | Make sure assistants are **not** listed in `@resurrect-processes` — the plugin handles all resuming via the post-restore hook |
@@ -461,10 +461,13 @@ also cleans up its state file on process exit (SIGINT, SIGTERM).
 
 ### Pi
 
-Pi sessions are detected from the running `pi` process command line. Launch Pi
-with `--session <id-or-path>` or `--session-id <id>` to make the session stable
-and resumable; restore re-launches it as `pi --session <id>` while preserving
-other CLI flags captured from the original process.
+Pi support uses a small Pi extension installed into `~/.pi/agent/extensions/`.
+On `session_start`, the extension writes `$STATE_DIR/pi-<PID>.json` with the
+current session ID and session file, so a plain `pi` command is resumable. As a
+fallback, the save hook also reads `--session <id-or-path>` or `--session-id
+<id>` from process args. Restore re-launches Pi as `pi --extension
+~/.pi/agent/extensions/tmux-assistant-resurrect-pi-session-track.ts --session
+<id>` while preserving other captured CLI flags.
 
 ### Codex CLI
 
