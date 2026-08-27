@@ -13,8 +13,8 @@ Persist and restore AI coding assistant sessions across tmux restarts and reboot
 When your computer shuts down, tmux sessions are lost -- including any running
 [Claude Code](https://github.com/anthropics/claude-code),
 [OpenCode](https://github.com/opencode-ai/opencode),
-[Codex CLI](https://github.com/openai/codex), or
-[Pi](https://pi.dev/) instances. This project hooks into
+[Codex CLI](https://github.com/openai/codex),
+[Pi](https://pi.dev/), or fn agent instances. This project hooks into
 [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) to
 automatically save assistant session IDs, CLI flags, and environment variables,
 then re-launch them with the exact same configuration after a restore.
@@ -25,7 +25,7 @@ then re-launch them with the exact same configuration after a restore.
 SAVE (every 5 min + manual prefix+Ctrl-s)
   tmux-resurrect saves pane layouts
     -> post-save hook inspects child processes of each pane
-    -> detects assistants by binary name (claude, opencode, codex, pi)
+    -> detects assistants by binary name (claude, opencode, codex, pi, fn)
     -> extracts session IDs via native hooks/plugins/process args
     -> writes assistant-sessions.json in tmux-resurrect's save dir
 
@@ -38,13 +38,14 @@ RESTORE (on tmux start or manual prefix+Ctrl-r)
          opencode --verbose -s <session-id>
          codex --full-auto resume <session-id>
          pi --session <session-id>
+         fn --session <session-id>
 ```
 
 ## Design
 
 Detection is done via direct process inspection: the save script takes a
 single `ps` snapshot of all processes, finds children of each tmux pane shell,
-and matches known assistant binary names (`claude`, `opencode`, `codex`, `pi`).
+and matches known assistant binary names (`claude`, `opencode`, `codex`, `pi`, `fn`).
 
 Session ID extraction uses tool-native mechanisms (infrastructure plumbing):
 
@@ -54,6 +55,7 @@ Session ID extraction uses tool-native mechanisms (infrastructure plumbing):
 | **OpenCode** | `-s` / `--session` in process args | Plugin state file | SQLite DB query (`~/.local/share/opencode/opencode.db`) | Go binary overwrites process title; DB fallback matches most recent session by cwd |
 | **Codex CLI** | PID lookup in `~/.codex/session-tags.jsonl` | `resume` in process args | - | Codex runs via Node.js, so args are always visible in `ps` |
 | **Pi** | Pi extension state file (keyed by Pi PID) | `--session` / `--session-id` in process args | - | The extension makes plain `pi` launches resumable; restore uses `pi --session <id>` |
+| **fn agent** | `~/.fn/running/<pid>` | - | - | fn publishes its session UUID while running; restore uses `fn --session <id>` |
 
 Each tool has a primary and fallback extraction method. Fallbacks address the
 chicken-and-egg problem: after a restore, session IDs are in process args even
@@ -65,7 +67,7 @@ version-resilient session ID extraction even when the plugin hasn't fired.
 - [tmux](https://github.com/tmux/tmux) (tested with 3.x)
 - [TPM](https://github.com/tmux-plugins/tpm) (Tmux Plugin Manager)
 - [jq](https://jqlang.github.io/jq/) (used by save/restore scripts)
-- At least one of: Claude Code, OpenCode, Codex CLI, Pi
+- At least one of: Claude Code, OpenCode, Codex CLI, Pi, fn agent
 
 ## Installation
 

@@ -181,6 +181,12 @@ get_pi_session() {
 	fi
 }
 
+get_fn_session() {
+	local child_pid="$1"
+	local state_file="$HOME/.fn/running/${child_pid}"
+	[ -f "$state_file" ] && cat "$state_file"
+}
+
 get_codex_session() {
 	local child_pid="$1"
 	local args="$2"
@@ -554,6 +560,11 @@ extract_cli_args() {
 		;;
 	esac
 
+	if [ "$tool" = "fn" ]; then
+		echo ""
+		return
+	fi
+
 	if [ "$tool" = "pi" ]; then
 		echo "$args" | sed -E 's/(^| )--session-id(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )--session(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )--continue( |$)/ /g; s/(^| )-c( |$)/ /g; s/(^| )--resume( |$)/ /g; s/(^| )-r( |$)/ /g; s/(^| )--fork( +[^- ][^ ]*)?/ /g; s/(^| )--extension(=[^ ]*| +[^- ][^ ]*)?/ /g; s/(^| )-e( +[^- ][^ ]*)?/ /g; s/  +/ /g; s/^ //; s/ $//'
 		return
@@ -660,6 +671,7 @@ resolve_pane_candidates() {
 				;;
 			codex) session_id=$(get_codex_session "$cand_pid" "$cand_args" "$pane_cwd") ;;
 			pi) session_id=$(get_pi_session "$cand_pid" "$cand_args") ;;
+			fn) session_id=$(get_fn_session "$cand_pid") ;;
 			esac
 
 			if [ -n "$session_id" ]; then
@@ -764,6 +776,7 @@ main() {
 			else if (line ~ /(^opencode( |$)|\/opencode( |$))/ && line !~ /opencode run /)       proc_tool[pid] = "opencode"
 			else if (line ~ /(^codex( |$)|\/codex( |$))/)                                        proc_tool[pid] = "codex"
 			else if (line ~ /(^pi( |$)|\/pi( |$))/)                                              proc_tool[pid] = "pi"
+			else if (line ~ /(^fn( |$)|\/fn( |$))/)                                              proc_tool[pid] = "fn"
 		}
 		END {
 			for (i = 1; i <= pane_count; i++) {
@@ -965,6 +978,7 @@ emit_session() {
 	opencode) session_id=$(get_opencode_session "$cpid" "$cargs" "$cwd" "$allow_opencode_db") ;;
 	codex) session_id=$(get_codex_session "$cpid" "$cargs" "$cwd") ;;
 	pi) session_id=$(get_pi_session "$cpid" "$cargs") ;;
+	fn) session_id=$(get_fn_session "$cpid") ;;
 	esac
 
 	if [ -n "$session_id" ]; then

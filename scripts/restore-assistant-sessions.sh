@@ -206,6 +206,9 @@ while read -r entry; do
 			resume_cmd="command pi --extension $(posix_quote "$HOME/.pi/agent/extensions/tmux-assistant-resurrect-pi-session-track.ts") --session ${safe_sid}"
 		fi
 		;;
+	fn)
+		resume_cmd="command fn --session ${safe_sid}"
+		;;
 	*)
 		log "unknown tool '$tool' for pane $pane, skipping"
 		continue
